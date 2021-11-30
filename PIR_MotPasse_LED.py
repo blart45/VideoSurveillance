@@ -9,6 +9,13 @@ import time
 import os
 import cv2
 
+# camera init
+video = cv2.VideoCapture("/dev/video0")
+width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+writer = cv2.VideoWriter('basicvideo.mp4', cv2.VideoWriter_fourcc(*'DIVX'), 20, (width,height))
+#
+
 L1 = 5
 L2 = 6
 L3 = 13
@@ -19,10 +26,11 @@ C2 = 16
 C3 = 20
 C4 = 21
 
-LED = 11	#rojo
-LED2 =10	#amarillo
-LED3 = 22
-PIR = 9
+LED = 11	# rojo
+LED2 =10	# amarillo
+LED3 = 27	# blanco
+PIR = 17
+
 
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
@@ -36,15 +44,15 @@ GPIO.setup(LED, GPIO.OUT)
 GPIO.setup(LED2, GPIO.OUT)
 GPIO.setup(LED3, GPIO.OUT)
 
-GPIO.setup(PIR, GPIO.IN)         #Read output from PIR motion sensor
+GPIO.setup(PIR, GPIO.IN)         # Read output from PIR motion sensor
 
 GPIO.setup(C1, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(C2, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(C3, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(C4, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-Enter = False #entre aue permet de verifie si le motpasse est nickel
-Mot = []	#permet d`ajouter le mot passe
+Enter = False # entre aue permet de verifie si le motpasse est nickel
+Mot = []	# permet d`ajouter le mot passe
 
 def readLine(line, characters):
     GPIO.output(line, GPIO.HIGH)
@@ -71,7 +79,7 @@ def readLine(line, characters):
 		global Enter
 		Enter = True
 		print(Mot, len(Mot))
-    GPIO.output(line, GPIO.LOW)
+	GPIO.output(line, GPIO.LOW)
 
 # Code pour mot de passe
 
@@ -80,7 +88,6 @@ def mdp():
 	if(Mot == MDP):
 		print("ok")
 		LedON(LED)
-		camera()
 	else:
 		print('pas ok')
 		blinc(LED2)
@@ -99,22 +106,20 @@ def LedON(led):
 #PIR
 def funcPIR():
 	i=GPIO.input(PIR)
+	global camera
+	global verification
 	if i==0:                 #When output from motion sensor is LOW
 		#print "No intruders",i
 		GPIO.output(LED3, GPIO.LOW)  #Turn OFF LED
 		time.sleep(0.1)
+		camera = False
+		verification = True
 	elif i==1:               #When output from motion sensor is HIGH
 		#print "Intruder detected",i
 		GPIO.output(LED3, GPIO.HIGH)  #Turn ON LED
 		time.sleep(0.1)
+		camera = True
 
-#Camera
-def camera():
-	for i in range(50):
-			text = "out"+str(i)
-			os.system("ffmpeg -f v4l2 -video_size 1280x720 -i /dev/video0 -frames 10 /home/pi/Video/"+text+".jpg")
-			#time.sleep(0.1)
-	os.system("ffmpeg -framerate 10 -i /home/pi/Video/out%d.jpg -c:v libx264 -r 10 -pix_fmt yuv420p /home/pi/Video/output.mp4")
 
 #LED blinking
 def blinc(led):
@@ -126,20 +131,36 @@ def blinc(led):
 
 #main
 try:
-    while True:
-        readLine(L1, ["1","2","3","A"])
-        readLine(L2, ["4","5","6","B"])
-        readLine(L3, ["7","8","9","C"])
-        readLine(L4, ["*","0","#","D"])
-        time.sleep(0.1)
-        funcPIR()
-        if(Enter == True):
+	while True:
+		readLine(L1, ["1","2","3","A"])
+		readLine(L2, ["4","5","6","B"])
+		readLine(L3, ["7","8","9","C"])
+		readLine(L4, ["*","0","#","D"])
+		time.sleep(0.1)
+		funcPIR()
+		if(Enter == True):
 			mdp()
-		elif(camera = True)
-			break
-			break
-        
-        
+		elif(camera == True):
+			while True:
+				ret,frame= video.read()
+				writer.write(frame)
+				##cv2.imshow('frame', frame)
+				funcPIR()
+				if cv2.waitKey(1) & 0xFF == 27:
+					break
+		elif(camera == False and verification == True):
+			verification = False
+			video.release()
+			writer.release()
+			cv2.destroyAllWindows()
+			
+					
+
 except KeyboardInterrupt:
-    print("\nApplication stopped!")
+	GPIO.output(LED, GPIO.LOW)
+	GPIO.output(LED2, GPIO.LOW)
+	GPIO.output(LED3, GPIO.LOW)
+	print("\nApplication stopped!")
+
+
 	
