@@ -55,7 +55,7 @@ Enter = False # entre aue permet de verifie si le motpasse est nickel
 Mot = []	# permet d`ajouter le mot passe
 
 def readLine(line, characters):
-    GPIO.output(line, GPIO.HIGH)
+    GPIO.output(line, GPIO.HIGH) #on a fait un changement
     if(GPIO.input(C1) == 1):
         while(GPIO.input(C1) == True):
             pass
